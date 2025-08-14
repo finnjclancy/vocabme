@@ -1,0 +1,23 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html, body {
+  height: 100%;
+}
+
+body {
+  @apply bg-white text-gray-900;
+}
+
+.theme-deep_ocean { @apply bg-gradient-to-b from-blue-900 to-blue-700; }
+.theme-shore { @apply bg-gradient-to-b from-blue-600 to-amber-200; }
+.theme-forest { @apply bg-gradient-to-b from-green-900 to-green-700; }
+.theme-savanna { @apply bg-gradient-to-b from-yellow-700 to-orange-500; }
+.theme-town { @apply bg-gradient-to-b from-slate-800 to-slate-600; }
+.theme-city { @apply bg-gradient-to-b from-gray-900 to-gray-700; }
+.theme-moon { @apply bg-gradient-to-b from-slate-900 to-indigo-900; }
+.theme-sci_fi { @apply bg-gradient-to-b from-fuchsia-900 to-cyan-700; }
+
+
+
