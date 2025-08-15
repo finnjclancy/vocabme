@@ -27,5 +27,3 @@ drop trigger if exists trg_attempts_bump on public.attempts;
 create trigger trg_attempts_bump
 after insert on public.attempts
 for each row execute function public.fn_bump_word_touches();
-
-

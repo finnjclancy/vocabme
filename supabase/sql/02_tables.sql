@@ -1,103 +1,111 @@
--- Core tables for vocabme
-
--- profiles: one row per auth user
+-- profiles table (users)
 create table if not exists public.profiles (
-    id uuid primary key references auth.users (id) on delete cascade,
-    x_id text,
-    name text,
-    timezone text,
-    streak integer not null default 0,
-    xp integer not null default 0,
-    last_active date,
-    allow_new_words_from_dictionary boolean not null default false
+  id text primary key, -- x user id
+  username text not null,
+  display_name text,
+  avatar_url text,
+  timezone text default 'UTC',
+  xp integer default 0,
+  streak_count integer default 0,
+  current_streak integer default 0,
+  longest_streak integer default 0,
+  last_streak_date date,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null,
+  updated_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 
--- words the user wants to learn
-create table if not exists public.words (
-    id uuid primary key default gen_random_uuid(),
-    user_id uuid not null references auth.users (id) on delete cascade,
-    word_text text not null,
-    definition text not null,
-    touches integer not null default 0 check (touches >= 0),
-    is_learned boolean not null default false,
-    created_at timestamptz not null default now()
-);
-
--- attempts during lessons/tutor
-create table if not exists public.attempts (
-    id uuid primary key default gen_random_uuid(),
-    user_id uuid not null references auth.users (id) on delete cascade,
-    word_id uuid not null references public.words (id) on delete cascade,
-    type text not null,
-    correct boolean not null,
-    prompt jsonb,
-    reply jsonb,
-    meta jsonb,
-    created_at timestamptz not null default now(),
-    constraint attempts_type_check check (type in ('blank','define','match_def','match_syn','speak'))
-);
-
--- study sessions for xp/streak aggregation
+-- sessions table for custom auth
 create table if not exists public.sessions (
-    id uuid primary key default gen_random_uuid(),
-    user_id uuid not null references auth.users (id) on delete cascade,
-    started_at timestamptz not null default now(),
-    ended_at timestamptz,
-    xp_earned integer not null default 0,
-    meta jsonb
+  id text primary key,
+  user_id text not null references public.profiles(id) on delete cascade,
+  access_token text not null,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null,
+  expires_at timestamp with time zone not null
 );
 
--- daily streak tracking
+-- words table
+create table if not exists public.words (
+  id uuid default gen_random_uuid() primary key,
+  user_id text not null references public.profiles(id) on delete cascade,
+  word_text text not null,
+  definition text not null,
+  is_learned boolean default false,
+  touches integer default 0,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null,
+  updated_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+-- attempts table
+create table if not exists public.attempts (
+  id uuid default gen_random_uuid() primary key,
+  user_id text not null references public.profiles(id) on delete cascade,
+  word_id uuid not null references public.words(id) on delete cascade,
+  session_id text not null references public.sessions(id) on delete cascade,
+  lesson_type text not null check (lesson_type in ('blank_in_sentence', 'free_define', 'matching', 'speak_in_sentence')),
+  is_correct boolean not null,
+  response_text text,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+-- streak_log table
 create table if not exists public.streak_log (
-    user_id uuid not null references auth.users (id) on delete cascade,
-    date date not null,
-    did_study boolean not null default true,
-    primary key (user_id, date)
+  id uuid default gen_random_uuid() primary key,
+  user_id text not null references public.profiles(id) on delete cascade,
+  date date not null,
+  xp_earned integer not null,
+  lessons_completed integer not null,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null,
+  unique(user_id, date)
 );
 
--- friendships
+-- friends table
 create table if not exists public.friends (
-    user_id uuid not null references auth.users (id) on delete cascade,
-    friend_id uuid not null references auth.users (id) on delete cascade,
-    status text not null default 'pending',
-    created_at timestamptz not null default now(),
-    constraint friends_self check (user_id <> friend_id),
-    constraint friends_status_check check (status in ('pending','accepted','blocked')),
-    primary key (user_id, friend_id)
+  id uuid default gen_random_uuid() primary key,
+  user_id text not null references public.profiles(id) on delete cascade,
+  friend_id text not null references public.profiles(id) on delete cascade,
+  status text not null check (status in ('pending', 'accepted', 'blocked')) default 'pending',
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null,
+  updated_at timestamp with time zone default timezone('utc'::text, now()) not null,
+  unique(user_id, friend_id)
 );
 
--- direct messages between friends
+-- messages table
 create table if not exists public.messages (
-    id uuid primary key default gen_random_uuid(),
-    from_user uuid not null references auth.users (id) on delete cascade,
-    to_user uuid not null references auth.users (id) on delete cascade,
-    body text not null,
-    created_at timestamptz not null default now()
+  id uuid default gen_random_uuid() primary key,
+  sender_id text not null references public.profiles(id) on delete cascade,
+  receiver_id text not null references public.profiles(id) on delete cascade,
+  word_id uuid references public.words(id) on delete set null,
+  message_text text,
+  is_read boolean default false,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 
--- theme bands for the learn path
+-- themes table
 create table if not exists public.themes (
-    id serial primary key,
-    name text not null,
-    min_words integer not null default 0,
-    max_words integer,
-    assets jsonb
+  id uuid default gen_random_uuid() primary key,
+  name text not null,
+  description text,
+  min_words_required integer not null,
+  max_words_required integer,
+  background_color text,
+  accent_color text,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 
--- tutor threads/messages (for v1 tutor)
+-- tutor_threads table
 create table if not exists public.tutor_threads (
-    id uuid primary key default gen_random_uuid(),
-    user_id uuid not null references auth.users (id) on delete cascade,
-    created_at timestamptz not null default now(),
-    last_at timestamptz
+  id uuid default gen_random_uuid() primary key,
+  user_id text not null references public.profiles(id) on delete cascade,
+  title text,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null,
+  updated_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 
+-- tutor_messages table
 create table if not exists public.tutor_messages (
-    id uuid primary key default gen_random_uuid(),
-    thread_id uuid not null references public.tutor_threads (id) on delete cascade,
-    user_id uuid references auth.users (id) on delete set null,
-    role text not null,
-    text text not null,
-    created_at timestamptz not null default now(),
-    constraint tutor_role_check check (role in ('user','assistant','system'))
+  id uuid default gen_random_uuid() primary key,
+  thread_id uuid not null references public.tutor_threads(id) on delete cascade,
+  role text not null check (role in ('user', 'assistant')),
+  content text not null,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );

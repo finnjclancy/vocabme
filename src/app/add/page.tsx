@@ -14,13 +14,28 @@ export default function AddPage() {
     setCandidates([])
     setDefinition('')
     try {
+      console.log('sending word:', word)
       const res = await fetch('/api/ai/definitions', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ word })
       })
+      console.log('response status:', res.status)
+      if (!res.ok) {
+        const errorText = await res.text()
+        console.error('api error:', errorText)
+        return
+      }
       const data = await res.json()
+      console.log('response data:', data)
+      if (data.error) {
+        console.error('api error:', data.error)
+        alert('Error: ' + data.error)
+        return
+      }
       setCandidates(data.options ?? [])
+    } catch (error) {
+      console.error('suggest error:', error)
     } finally {
       setLoading(false)
     }

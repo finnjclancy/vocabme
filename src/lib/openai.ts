@@ -5,22 +5,46 @@ export function openai() {
 }
 
 export async function suggestDefinitions(word: string): Promise<string[]> {
-  const client = openai()
-  const prompt = `give 3 concise learner-friendly definitions for the english word "${word}" in 12 words or fewer each. no examples. simple language. return as a json array of strings.`
+  console.log('suggestDefinitions called with:', word)
+  
 
-  const res = await client.chat.completions.create({
-    model: 'gpt-4o-mini',
-    messages: [
-      { role: 'system', content: 'you write very short learner-friendly definitions.' },
-      { role: 'user', content: prompt },
-    ],
-    temperature: 0.2,
-  })
-  const text = res.choices[0]?.message?.content || '[]'
+  
+  const client = openai()
+  const prompt = `read this message and respond with an array of 3 definitions for the highlighted word/phrase in this message: "${word}"`
+  console.log('sending prompt:', prompt)
+
   try {
-    const arr = JSON.parse(text)
-    return Array.isArray(arr) ? arr.slice(0, 5) : []
-  } catch {
+    const res = await client.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [
+        { role: 'system', content: 'you are a helpful assistant that provides concise definitions. always respond with a valid json array of exactly 3 strings.' },
+        { role: 'user', content: prompt },
+      ],
+      temperature: 0.2,
+    })
+    const text = res.choices[0]?.message?.content || '[]'
+    console.log('openai raw response:', JSON.stringify(text))
+    try {
+      // clean up the text - remove markdown code blocks and extra whitespace
+      let cleanText = text.trim()
+      
+      // remove markdown code blocks (```json ... ```)
+      cleanText = cleanText.replace(/^```json\s*/, '').replace(/\s*```$/, '')
+      
+      // remove extra whitespace and newlines
+      cleanText = cleanText.replace(/\n/g, ' ').replace(/\s+/g, ' ').trim()
+      console.log('cleaned text:', cleanText)
+      const arr = JSON.parse(cleanText)
+      console.log('parsed array:', arr)
+      const result = Array.isArray(arr) ? arr.slice(0, 5) : []
+      console.log('final result:', result)
+      return result
+    } catch (parseError) {
+      console.error('json parse error:', parseError, 'on text:', text)
+      return []
+    }
+  } catch (openaiError) {
+    console.error('openai error:', openaiError)
     return []
   }
 }

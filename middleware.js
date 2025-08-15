@@ -1,7 +1,8 @@
-import { NextResponse } from 'next/server'
-import type { NextRequest } from 'next/server'
+console.log('=== MIDDLEWARE FILE LOADED ===')
 
-export async function middleware(request: NextRequest) {
+import { NextResponse } from 'next/server'
+
+export async function middleware(request) {
   console.log('=== MIDDLEWARE RUNNING ===')
   console.log('url:', request.url)
   console.log('pathname:', request.nextUrl.pathname)
